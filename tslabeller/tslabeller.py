@@ -145,11 +145,11 @@ class TimeSeriesLabellerWindow:
                 np.save(fname, self.labels)
                 file.close()
 
-    def load_axis_data(self, data: np.ndarray):
-        self.data = data
-        self.max_value = np.max(data)
-        self.min_value = np.min(data)
-        self.labels = np.full((data.shape[0],), -1)
+    def load_axis_data(self, x: np.ndarray, y: np.ndarray):
+        self.data = x
+        self.max_value = np.max(y)
+        self.min_value = np.min(y)
+        self.labels = np.full((x.shape[0],), -1)
         self.is_data_loaded = True
 
     def get_ax(self):
@@ -163,9 +163,9 @@ if __name__ == "__main__":
     x = np.linspace(0, 500, 500)
     main_array = np.random.rand(500)
     additional_array = np.sin(2 * np.pi * x) / 2 + 0.5
-    ax.plot(main_array, label="rand", color="blue")
-    ax.plot(additional_array, label="sin", color="red")
+    ax.plot(x, main_array, label="rand", color="blue")
+    ax.plot(x, additional_array, label="sin", color="red")
     ax.legend()
 
-    tsl.load_axis_data(main_array)
+    tsl.load_axis_data(x, main_array)
     tsl.root.mainloop()
