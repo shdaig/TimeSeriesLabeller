@@ -1,20 +1,27 @@
+import os.path
+
 import numpy as np
-import tslabeller.tslabeller as tsl
+import tslabeller as tsl
 
 tslw = tsl.TimeSeriesLabellerWindow()
+tslw.set_default_save_path(os.path.join(".", "test.npy"))
 ax = tslw.get_ax()
 
-x = np.linspace(0, 500, 500)
-main_array = np.random.rand(500)
-additional_array = np.sin(2 * np.pi * x) / 2 + 0.5
-ax.plot(x, main_array, label="rand", color="blue")
-ax.plot(x, additional_array, label="sin", color="red")
+x_for_labelling = np.linspace(0, 16.3, 15) + 7.5
+data_for_labelling = np.random.rand(15)
+
+additional_x = np.linspace(0, 30, 30)
+additional_data = np.sin(2 * np.pi * additional_x) / 2 + 0.5
+
+ax.plot(additional_x, additional_data, label="sin", color="red", linestyle="--")
+ax.plot(x_for_labelling, data_for_labelling, label="rand", color="blue", marker='o')
 ax.legend()
 
-tslw.load_axis_data(x, main_array)
-tslw.root.mainloop()
+tslw.load_target_data(x_for_labelling, data_for_labelling)
+tslw.show()
 
-with open('test.npy', 'rb') as f:
-    a = np.load(f)
-    print(a.shape)
-    print(np.unique(a, return_counts=True))
+if os.path.exists('test.npy'):
+    with open('test.npy', 'rb') as f:
+        a = np.load(f)
+        print(a.shape)
+        print(np.unique(a, return_counts=True))

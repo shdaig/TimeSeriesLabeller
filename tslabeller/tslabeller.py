@@ -1,3 +1,5 @@
+import os.path
+
 import numpy as np
 
 import tkinter as tk
@@ -12,6 +14,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolb
 class TimeSeriesLabellerWindow:
     def __init__(self):
         self.is_data_loaded = False
+        self.x = None
         self.data = None
         self.labels = None
         self.min_value = 0
@@ -20,8 +23,10 @@ class TimeSeriesLabellerWindow:
         self.first_point = True
         self.start_line = None
         self.temp_coords = []
-        self.colors = {0: 'blue', 1: 'red', 2: 'green', 3: 'magenta', 4: 'orange', 5: 'cyan'}
+        self.colors = {-1: 'black', 0: 'blue', 1: 'red', 2: 'green', 3: 'magenta', 4: 'orange', 5: 'cyan'}
         self.cb_classes = ["-1 (None)", "0 (Blue)", "1 (Red)", "2 (Green)", "3 (Magenta)", "4 (Orange)", "5 (Cyan)"]
+
+        self.default_save_path = os.path.join(".", "")
 
         self.w = 1500
         self.h = 850
@@ -62,33 +67,11 @@ class TimeSeriesLabellerWindow:
         plt.close(self.fig)
         self.root.destroy()
 
-    def _midmouseclick(self, event):
-        if self.is_data_loaded:
-            if event.button == 2:
-                x = int(event.xdata)
-                print(f'x = {x}')
-                x = 0 if x < 0 else x
-                x = len(self.data) if x > len(self.data) else x
-                self._update_labels(x)
-
-    def _update_labels(self, x_coordinate: int):
-        """
-        Update labels list after two clicks on time series plot.
-        :param x_coordinate: Coordinate X of click place
-        """
-        if self.first_point:
-            self.temp_coords.append(x_coordinate)
-            self.first_point = False
-            self.start_line = self.ax.axvline(x_coordinate, color='r', linestyle='--')
-            self._update_plot()
-        else:
-            self.temp_coords.append(x_coordinate)
-            class_label = int(self.class_var.get().split(' ')[0])
-            self.labels[self.temp_coords[0]:self.temp_coords[1]] = class_label
-            self.start_line.remove()
-            self._update_plot()
-            self.temp_coords = []
-            self.first_point = True
+    @staticmethod
+    def _find_nearest(array, value):
+        array = np.asarray(array)
+        idx = (np.abs(array - value)).argmin()
+        return array[idx], idx
 
     @staticmethod
     def _get_coords_for_classes(labels: np.ndarray) -> tuple[list, list]:
@@ -107,25 +90,71 @@ class TimeSeriesLabellerWindow:
                 coords.append(i)
                 classes.append(labels[i])
             i += 1
-        coords.append(i - 1)
-        classes.append(labels[i - 1])
         return coords, classes
+
+    def _midmouseclick(self, event):
+        if self.is_data_loaded:
+            if event.button == 2:
+                x_click = event.xdata
+                x_nearest, x_idx = self._find_nearest(self.x, x_click)
+                # print(f'x_click, x_nearest[x_idx] = {x_click}, {x_nearest}[{x_idx}]')
+                self._update_labels(x_idx)
+
+    def _update_labels(self, x_idx: int):
+        """
+        Update labels list after two clicks on time series plot.
+        :param x_idx: Index of click nearest coordinate from X array
+        """
+        class_label = int(self.class_var.get().split(' ')[0])
+        if self.first_point:
+            self.temp_coords.append(x_idx)
+            self.first_point = False
+            self.start_line = self.ax.axvline(self.x[x_idx], color=self.colors[class_label], linestyle='--')
+            self._update_plot()
+        else:
+            self.temp_coords.append(x_idx)
+            self.temp_coords.sort()
+            self.labels[self.temp_coords[0]:self.temp_coords[1] + 1] = class_label
+            # print(self.labels)
+            self.start_line.remove()
+            self._update_plot()
+            self.temp_coords = []
+            self.first_point = True
 
     def _update_plot(self):
         xlim, ylim = self.ax.get_xlim(), self.ax.get_ylim()
         for p in reversed(self.ax.patches):
             p.remove()
         coords, classes = self._get_coords_for_classes(self.labels)
-        print(f"channel_coords: {coords}")
-        print(f"channel_classes: {classes}")
+        # print(f"channel_coords: {coords}")
+        # print(f"channel_classes: {classes}")
 
-        for j in range(len(coords) - 1):
+        for j in range(len(coords)):
             if classes[j] != -1:
-                rectangle = Rectangle(xy=(coords[j], self.min_value),
-                                      width=coords[j + 1] - coords[j],
+                end_point = len(self.labels) - 1
+                if j != len(coords) - 1:
+                    end_point = coords[j + 1] - 1
+                # print(f"{coords[j]} - {end_point}")
+
+                class_rect_shift_start = 0
+                if coords[j] == 0:
+                    class_rect_shift_start = 0.5 * (self.x[coords[j] + 1] - self.x[coords[j]])
+                else:
+                    class_rect_shift_start = 0.5 * (self.x[coords[j]] - self.x[coords[j] - 1])
+                class_rect_shift_end = 0
+                if end_point == len(self.labels) - 1:
+                    class_rect_shift_end = 0.5 * (self.x[end_point] - self.x[end_point - 1])
+                else:
+                    class_rect_shift_end = 0.5 * (self.x[end_point + 1] - self.x[end_point])
+
+                rectangle = Rectangle(xy=(self.x[coords[j]] - class_rect_shift_start,
+                                          self.min_value),
+                                      width=self.x[end_point] - self.x[coords[j]] +
+                                            class_rect_shift_start + class_rect_shift_end,
                                       height=self.max_value - self.min_value,
                                       facecolor=self.colors[classes[j]],
                                       alpha=0.3)
+
                 self.ax.add_patch(rectangle)
 
         self.ax.set_xlim(left=xlim[0], right=xlim[1])
@@ -135,9 +164,12 @@ class TimeSeriesLabellerWindow:
 
     def _save_labels(self):
         if self.labels is not None:
-            types = [("npy", "*.npy")]
+            types = [("NumPy file", "*.npy")]
+            initialdir = os.path.join(*self.default_save_path.split(os.sep)[:-1])
+            initialfile = self.default_save_path.split(os.sep)[-1]
             file = filedialog.asksaveasfile(title="Save Labels",
-                                            initialdir=".",
+                                            initialdir=initialdir,
+                                            initialfile=initialfile,
                                             defaultextension=".npy",
                                             filetypes=types)
             if file:
@@ -145,27 +177,37 @@ class TimeSeriesLabellerWindow:
                 np.save(fname, self.labels)
                 file.close()
 
-    def load_axis_data(self, x: np.ndarray, y: np.ndarray):
-        self.data = x
-        self.max_value = np.max(y)
-        self.min_value = np.min(y)
+    def load_target_data(self, x: np.ndarray, data: np.ndarray):
+        self.x = x
+        self.data = data
+        self.max_value = np.max(data)
+        self.min_value = np.min(data)
         self.labels = np.full((x.shape[0],), -1)
         self.is_data_loaded = True
 
     def get_ax(self):
         return self.ax
 
+    def show(self):
+        self.root.mainloop()
+
+    def set_default_save_path(self, path):
+        self.default_save_path = path
+
 
 if __name__ == "__main__":
-    tsl = TimeSeriesLabellerWindow()
-    ax = tsl.get_ax()
+    tslw = TimeSeriesLabellerWindow()
+    ax = tslw.get_ax()
 
-    x = np.linspace(0, 500, 500)
-    main_array = np.random.rand(500)
-    additional_array = np.sin(2 * np.pi * x) / 2 + 0.5
-    ax.plot(x, main_array, label="rand", color="blue")
-    ax.plot(x, additional_array, label="sin", color="red")
+    x_for_labelling = np.linspace(0, 16.3, 15) + 7.5
+    data_for_labelling = np.random.rand(15)
+
+    additional_x = np.linspace(0, 30, 30)
+    additional_data = np.sin(2 * np.pi * additional_x) / 2 + 0.5
+
+    ax.plot(additional_x, additional_data, label="sin", color="red", linestyle="--")
+    ax.plot(x_for_labelling, data_for_labelling, label="rand", color="blue", marker='o')
     ax.legend()
 
-    tsl.load_axis_data(x, main_array)
-    tsl.root.mainloop()
+    tslw.load_target_data(x_for_labelling, data_for_labelling)
+    tslw.show()
