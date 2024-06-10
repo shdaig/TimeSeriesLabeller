@@ -95,10 +95,11 @@ class TimeSeriesLabellerWindow:
     def _midmouseclick(self, event):
         if self.is_data_loaded:
             if event.button == 2:
-                x_click = event.xdata
-                x_nearest, x_idx = self._find_nearest(self.x, x_click)
-                # print(f'x_click, x_nearest[x_idx] = {x_click}, {x_nearest}[{x_idx}]')
-                self._update_labels(x_idx)
+                if event.xdata is not None:
+                    x_click = event.xdata
+                    x_nearest, x_idx = self._find_nearest(self.x, x_click)
+                    # print(f'x_click, x_nearest[x_idx] = {x_click}, {x_nearest}[{x_idx}]')
+                    self._update_labels(x_idx)
 
     def _update_labels(self, x_idx: int):
         """
